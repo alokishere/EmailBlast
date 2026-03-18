@@ -22,7 +22,7 @@ const authEventSchema = new mongoose.Schema(
     },
     eventType: {
       type: String,
-      enum: ['login', 'logout'],
+      enum: ['login', 'logout', 'user_created', 'user_deleted'],
       required: true,
       index: true,
     },

@@ -25,6 +25,10 @@ const bulkEmailLogSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    textBody: {
+      type: String,
+      default: '',
+    },
     textLength: {
       type: Number,
       default: 0,
@@ -33,6 +37,10 @@ const bulkEmailLogSchema = new mongoose.Schema(
     hasHtml: {
       type: Boolean,
       default: false,
+    },
+    htmlBody: {
+      type: String,
+      default: '',
     },
     htmlLength: {
       type: Number,

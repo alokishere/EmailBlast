@@ -4,7 +4,7 @@ const nodemailer = require('nodemailer');
 const { google } = require('googleapis');
 
 const isAuth = require('../middleware/isAuth');
-const { isMongoConnected } = require('../config/db');
+const { connectDB, isPersistenceEnabled } = require('../config/db');
 const User = require('../models/User');
 const BulkEmailLog = require('../models/BulkEmailLog');
 
@@ -101,7 +101,12 @@ async function persistBulkLog({
   results,
   error = '',
 }) {
-  if (!isMongoConnected() || !req.user?.id) {
+  if (!isPersistenceEnabled() || !req.user?.id) {
+    return;
+  }
+
+  const connected = await connectDB();
+  if (!connected) {
     return;
   }
 
@@ -114,8 +119,11 @@ async function persistBulkLog({
           name: req.user.name || '',
           email: req.user.email || '',
           photo: req.user.photo || '',
+          lastSeenAt: new Date(),
           lastIp: getClientIp(req),
           lastUserAgent: req.get('user-agent') || '',
+          isActive: true,
+          isDeleted: false,
         },
         $setOnInsert: {
           firstLoginAt: new Date(),
@@ -136,8 +144,10 @@ async function persistBulkLog({
       googleId: req.user.id,
       email: req.user.email || '',
       subject,
+      textBody: text,
       textLength: text.length,
       hasHtml: Boolean(html),
+      htmlBody: html,
       htmlLength: html.length,
       recipientCount: emails.length,
       recipients: emails,

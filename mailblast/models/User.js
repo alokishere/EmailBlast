@@ -35,6 +35,11 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    logoutCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     firstLoginAt: {
       type: Date,
     },
@@ -57,6 +62,13 @@ const userSchema = new mongoose.Schema(
     lastSeenAt: {
       type: Date,
     },
+    deletedAt: {
+      type: Date,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -67,6 +79,6 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-userSchema.index({ email: 1 }, { unique: true, sparse: true });
+userSchema.index({ email: 1 });
 
 module.exports = mongoose.models.User || mongoose.model('User', userSchema);

@@ -1,7 +1,7 @@
 const express = require('express');
 
 const isAuth = require('../middleware/isAuth');
-const { isMongoConnected } = require('../config/db');
+const { connectDB, isMongoConnected, isPersistenceEnabled } = require('../config/db');
 const User = require('../models/User');
 const AuthEvent = require('../models/AuthEvent');
 const BulkEmailLog = require('../models/BulkEmailLog');
@@ -10,10 +10,25 @@ const router = express.Router();
 
 router.use(isAuth);
 
-router.use((req, res, next) => {
+router.use(async (req, res, next) => {
+  if (!isPersistenceEnabled()) {
+    return res.status(503).json({
+      error: 'Analytics storage is disabled. Set ENABLE_PERSISTENCE=true.',
+    });
+  }
+
+  if (!isMongoConnected()) {
+    const connected = await connectDB();
+    if (!connected) {
+      return res.status(503).json({
+        error: 'MongoDB is not connected. Check MONGO_URI and network access.',
+      });
+    }
+  }
+
   if (!isMongoConnected()) {
     return res.status(503).json({
-      error: 'MongoDB is not connected. Add MONGO_URI in .env and restart.',
+      error: 'MongoDB is not connected. Check MONGO_URI and network access.',
     });
   }
 
@@ -22,11 +37,22 @@ router.use((req, res, next) => {
 
 router.get('/overview', async (req, res) => {
   try {
-    const [totalUsers, totalLoginEvents, totalLogoutEvents, totalCampaigns, sentAgg, activeUsers] =
+    const [
+      totalUsers,
+      totalLoginEvents,
+      totalLogoutEvents,
+      totalCreatedEvents,
+      totalDeletedEvents,
+      totalCampaigns,
+      sentAgg,
+      activeUsers,
+    ] =
       await Promise.all([
         User.countDocuments(),
         AuthEvent.countDocuments({ eventType: 'login' }),
         AuthEvent.countDocuments({ eventType: 'logout' }),
+        AuthEvent.countDocuments({ eventType: 'user_created' }),
+        AuthEvent.countDocuments({ eventType: 'user_deleted' }),
         BulkEmailLog.countDocuments(),
         BulkEmailLog.aggregate([
           {
@@ -48,6 +74,8 @@ router.get('/overview', async (req, res) => {
       activeUsers,
       totalLoginEvents,
       totalLogoutEvents,
+      totalCreatedEvents,
+      totalDeletedEvents,
       totalCampaigns,
       totalRecipients: totals.totalRecipients,
       totalSent: totals.totalSent,
@@ -68,7 +96,7 @@ router.get('/users', async (req, res) => {
       .sort({ updatedAt: -1 })
       .limit(limit)
       .select(
-        'googleId name email photo loginCount firstLoginAt lastLoginAt lastLogoutAt lastIp lastUserAgent createdAt updatedAt isActive'
+        'googleId name email photo loginCount logoutCount firstLoginAt lastLoginAt lastLogoutAt lastSeenAt deletedAt isDeleted lastIp lastUserAgent createdAt updatedAt isActive'
       )
       .lean();
 
@@ -110,7 +138,7 @@ router.get('/email-logs', async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit)
       .select(
-        'googleId email subject recipientCount sent failed status attachments createdAt updatedAt'
+        'googleId email subject textBody textLength htmlBody htmlLength recipientCount recipients sent failed status results attachments createdAt updatedAt'
       )
       .lean();
 

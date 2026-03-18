@@ -1,6 +1,6 @@
 const User = require('../models/User');
 const AuthEvent = require('../models/AuthEvent');
-const { isMongoConnected } = require('../config/db');
+const { connectDB, isPersistenceEnabled } = require('../config/db');
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -12,77 +12,110 @@ function getClientIp(req) {
 }
 
 async function upsertUserOnLogin(req) {
-  if (!isMongoConnected() || !req.user?.id) {
+  if (!isPersistenceEnabled() || !req.user?.id) {
+    return null;
+  }
+
+  const connected = await connectDB();
+  if (!connected) {
     return null;
   }
 
   const now = new Date();
+  const existing = await User.findOne({ googleId: req.user.id });
 
-  const user = await User.findOneAndUpdate(
-    { googleId: req.user.id },
-    {
-      $set: {
-        provider: 'google',
-        name: req.user.name || '',
-        email: req.user.email || '',
-        photo: req.user.photo || '',
-        lastLoginAt: now,
-        lastSeenAt: now,
-        lastIp: getClientIp(req),
-        lastUserAgent: req.get('user-agent') || '',
-        isActive: true,
-      },
-      $setOnInsert: {
-        firstLoginAt: now,
-      },
-      $inc: {
-        loginCount: 1,
-      },
-    },
-    {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true,
-    }
-  );
+  if (!existing) {
+    return User.create({
+      googleId: req.user.id,
+      provider: 'google',
+      name: req.user.name || '',
+      email: req.user.email || '',
+      photo: req.user.photo || '',
+      loginCount: 1,
+      logoutCount: 0,
+      firstLoginAt: now,
+      lastLoginAt: now,
+      lastSeenAt: now,
+      lastIp: getClientIp(req),
+      lastUserAgent: req.get('user-agent') || '',
+      isActive: true,
+      isDeleted: false,
+    });
+  }
 
-  return user;
+  existing.provider = 'google';
+  existing.name = req.user.name || '';
+  existing.email = req.user.email || '';
+  existing.photo = req.user.photo || '';
+  existing.lastLoginAt = now;
+  existing.lastSeenAt = now;
+  existing.lastIp = getClientIp(req);
+  existing.lastUserAgent = req.get('user-agent') || '';
+  existing.isActive = true;
+  existing.isDeleted = false;
+  existing.deletedAt = undefined;
+  existing.loginCount = Number(existing.loginCount || 0) + 1;
+
+  await existing.save();
+  return existing;
 }
 
 async function ensureSessionUser(req) {
-  if (!isMongoConnected() || !req.user?.id) {
+  if (!isPersistenceEnabled() || !req.user?.id) {
+    return null;
+  }
+
+  const connected = await connectDB();
+  if (!connected) {
     return null;
   }
 
   const now = new Date();
 
   try {
-    const user = await User.findOneAndUpdate(
-      { googleId: req.user.id },
-      {
-        $set: {
-          provider: 'google',
-          name: req.user.name || '',
-          email: req.user.email || '',
-          photo: req.user.photo || '',
-          lastSeenAt: now,
-          lastIp: getClientIp(req),
-          lastUserAgent: req.get('user-agent') || '',
-          isActive: true,
-        },
-        $setOnInsert: {
-          firstLoginAt: now,
-          lastLoginAt: now,
-        },
-      },
-      {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true,
-      }
-    );
+    const existing = await User.findOne({ googleId: req.user.id });
 
-    return user;
+    if (!existing) {
+      const created = await User.create({
+        googleId: req.user.id,
+        provider: 'google',
+        name: req.user.name || '',
+        email: req.user.email || '',
+        photo: req.user.photo || '',
+        loginCount: 1,
+        logoutCount: 0,
+        firstLoginAt: now,
+        lastLoginAt: now,
+        lastSeenAt: now,
+        lastIp: getClientIp(req),
+        lastUserAgent: req.get('user-agent') || '',
+        isActive: true,
+        isDeleted: false,
+      });
+
+      await saveAuthEvent({
+        req,
+        user: created,
+        eventType: 'user_created',
+        metadata: { reason: 'session_recovery' },
+      });
+
+      return created;
+    }
+
+    existing.provider = 'google';
+    existing.name = req.user.name || '';
+    existing.email = req.user.email || '';
+    existing.photo = req.user.photo || '';
+    existing.lastSeenAt = now;
+    existing.lastIp = getClientIp(req);
+    existing.lastUserAgent = req.get('user-agent') || '';
+    existing.isActive = true;
+    existing.isDeleted = false;
+    existing.deletedAt = undefined;
+
+    await existing.save();
+    return existing;
   } catch (error) {
     console.error('[audit] ensureSessionUser failed:', error.message);
     return null;
@@ -90,7 +123,12 @@ async function ensureSessionUser(req) {
 }
 
 async function saveAuthEvent({ req, user, eventType, metadata = {} }) {
-  if (!isMongoConnected() || !req.user?.id) {
+  if (!isPersistenceEnabled() || !req.user?.id) {
+    return;
+  }
+
+  const connected = await connectDB();
+  if (!connected) {
     return;
   }
 
@@ -108,7 +146,33 @@ async function saveAuthEvent({ req, user, eventType, metadata = {} }) {
 
 async function recordLogin(req) {
   try {
+    if (!isPersistenceEnabled() || !req.user?.id) {
+      return null;
+    }
+
+    const connected = await connectDB();
+    if (!connected) {
+      return null;
+    }
+
+    const existedBefore = Boolean(
+      await User.findOne({ googleId: req.user.id }).select('_id').lean()
+    );
+
     const user = await upsertUserOnLogin(req);
+    if (!user) {
+      return null;
+    }
+
+    if (!existedBefore) {
+      await saveAuthEvent({
+        req,
+        user,
+        eventType: 'user_created',
+        metadata: { reason: 'first_login' },
+      });
+    }
+
     await saveAuthEvent({ req, user, eventType: 'login' });
     return user;
   } catch (error) {
@@ -118,7 +182,12 @@ async function recordLogin(req) {
 }
 
 async function recordLogout(req) {
-  if (!isMongoConnected() || !req.user?.id) {
+  if (!isPersistenceEnabled() || !req.user?.id) {
+    return;
+  }
+
+  const connected = await connectDB();
+  if (!connected) {
     return;
   }
 
@@ -128,9 +197,13 @@ async function recordLogout(req) {
       {
         $set: {
           lastLogoutAt: new Date(),
+          lastSeenAt: new Date(),
           lastIp: getClientIp(req),
           lastUserAgent: req.get('user-agent') || '',
           isActive: false,
+        },
+        $inc: {
+          logoutCount: 1,
         },
       },
       { new: true }
@@ -142,8 +215,49 @@ async function recordLogout(req) {
   }
 }
 
+async function recordUserDelete(req) {
+  if (!isPersistenceEnabled() || !req.user?.id) {
+    return null;
+  }
+
+  const connected = await connectDB();
+  if (!connected) {
+    return null;
+  }
+
+  try {
+    const user = await User.findOneAndUpdate(
+      { googleId: req.user.id },
+      {
+        $set: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          isActive: false,
+          lastSeenAt: new Date(),
+          lastIp: getClientIp(req),
+          lastUserAgent: req.get('user-agent') || '',
+        },
+      },
+      { new: true }
+    );
+
+    await saveAuthEvent({
+      req,
+      user,
+      eventType: 'user_deleted',
+      metadata: { reason: 'user_requested' },
+    });
+
+    return user;
+  } catch (error) {
+    console.error('[audit] recordUserDelete failed:', error.message);
+    return null;
+  }
+}
+
 module.exports = {
   ensureSessionUser,
   recordLogin,
   recordLogout,
+  recordUserDelete,
 };
