@@ -64,6 +64,31 @@ a {
   margin-top: 14px;
 }
 
+.hero-actions {
+  margin-top: 22px;
+}
+
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-decoration: none;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 12px 18px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hero-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(232, 255, 71, 0.25);
+}
+
 .muted {
   color: var(--muted);
 }

@@ -9,7 +9,7 @@ module.exports = function buildAuthRoutes(passport) {
 
   router.get('/login', (req, res) => {
     if (req.isAuthenticated && req.isAuthenticated()) {
-      return res.redirect('/');
+      return res.redirect('/home');
     }
 
     return res.sendFile(loginPagePath);
@@ -34,7 +34,7 @@ module.exports = function buildAuthRoutes(passport) {
     async (req, res) => {
       await recordLogin(req);
       console.log('[auth] Callback success');
-      res.redirect('/');
+      res.redirect('/home');
     }
   );
 

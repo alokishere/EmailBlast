@@ -16,6 +16,8 @@ const analyticsRoutes = require('./routes/analytics');
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const publicDir = path.join(__dirname, 'public');
+const landingPagePath = path.join(publicDir, 'landing.html');
+const homePagePath = path.join(publicDir, 'index.html');
 
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.SESSION_SECRET) {
   console.warn('[config] Missing one or more required env variables: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET');
@@ -81,6 +83,11 @@ passport.deserializeUser((user, done) => {
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+app.get('/index.html', isAuth, (req, res) => {
+  res.sendFile(homePagePath);
+});
+
 app.use(express.static(publicDir, { index: false }));
 
 app.use('/', authRoutes(passport));
@@ -95,8 +102,12 @@ app.get('/terms-and-conditions', (req, res) => {
   res.sendFile(path.join(publicDir, 'terms.html'));
 });
 
-app.get('/', isAuth, (req, res) => {
-  res.sendFile(path.join(publicDir, 'index.html'));
+app.get('/', (req, res) => {
+  res.sendFile(landingPagePath);
+});
+
+app.get('/home', isAuth, (req, res) => {
+  res.sendFile(homePagePath);
 });
 
 app.get('/me', isAuth, async (req, res) => {
