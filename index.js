@@ -51,9 +51,35 @@ function parseRecipients(rawEmails) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+
+
+// Static files (like CSS, JS)
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
+
+app.get('/login', (req, res) => {
+  console.log("LOGIN ROUTE HIT");
+  res.sendFile(path.join(__dirname, 'login.html'));
+});
+
+// google auth callback route
+app.get('/auth/google', (req, res) => {
+
+  // This route will be hit after Google authentication
+
+  console.log("Google auth callback hit with query:", req.query);
+  const { code } = req.query;
+  if (code) {
+    // Here you would exchange the code for tokens and get user info
+    // For simplicity, we'll just send a success message
+    res.send('Google authentication successful! You can now close this window.');
+  } else {
+    res.status(400).send('Google authentication failed. No code received.');
+  }
+
+});
+
 
 app.post('/send-bulk', upload.array('attachments'), async (req, res) => {
   try {
@@ -164,6 +190,7 @@ for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
     });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

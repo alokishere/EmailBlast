@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MailBlast | Compose</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body class="app-page">
+    <main class="app-shell">
+      <section class="panel compose-panel">
+        <div class="panel-head">
+          <p class="eyebrow">Compose</p>
+          <h1>Build Your Campaign</h1>
+        </div>
+
+        <form id="sendForm" class="compose-form" novalidate>
+          <label class="field">
+            <span>Subject <strong>*</strong></span>
+            <input id="subject" name="subject" type="text" required placeholder="Your email subject" />
+          </label>
+
+          <label class="field">
+            <span>Message Body (Plain Text) <strong>*</strong></span>
+            <textarea
+              id="textBody"
+              name="text"
+              rows="8"
+              required
+              placeholder="Write plain text email body"
+            ></textarea>
+          </label>
+
+          <label class="field">
+            <span>HTML Body (Optional)</span>
+            <textarea
+              id="htmlBody"
+              name="html"
+              rows="8"
+              placeholder="<h1>Hello</h1><p>This is HTML content.</p>"
+            ></textarea>
+          </label>
+
+          <div class="field">
+            <span>Attachments</span>
+            <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="File upload dropzone">
+              <input id="fileInput" type="file" multiple hidden />
+              <p><strong>Drop files here</strong> or click to browse</p>
+              <small>Files stay in-memory and are sent to Gmail API directly.</small>
+            </div>
+            <ul id="fileList" class="file-list"></ul>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel recipients-panel">
+        <div class="user-header">
+          <div class="user-info">
+            <img id="userPhoto" src="" alt="User avatar" class="avatar" />
+            <div>
+              <p id="userName" class="user-name">Loading...</p>
+              <p id="userEmail" class="user-email">Fetching account...</p>
+            </div>
+          </div>
+          <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+
+        <div class="recipient-wrap">
+          <div class="recipient-title-row">
+            <h2>Recipients</h2>
+            <span id="recipientCount" class="count-badge">0</span>
+          </div>
+
+          <div id="emailTagBox" class="tag-box">
+            <input
+              id="emailInput"
+              type="text"
+              autocomplete="off"
+              placeholder="Type email and press Enter or comma"
+            />
+          </div>
+
+          <p class="hint">Paste CSV or comma-separated emails. Invalid emails are highlighted.</p>
+        </div>
+
+        <button id="sendBtn" type="submit" form="sendForm" class="send-btn">SEND BULK EMAIL</button>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <p>Recipients</p>
+            <strong id="statRecipients">0</strong>
+          </div>
+          <div class="stat-card">
+            <p>Attachments</p>
+            <strong id="statAttachments">0</strong>
+          </div>
+          <div class="stat-card">
+            <p>Status</p>
+            <strong id="statStatus">Idle</strong>
+          </div>
+        </div>
+
+        <div class="legal-links">
+          <a href="/privacy-policy" target="_blank" rel="noreferrer">Privacy Policy</a>
+          <a href="/terms-and-conditions" target="_blank" rel="noreferrer">Terms & Conditions</a>
+        </div>
+      </section>
+    </main>
+
+    <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+  </body>
+</html>
